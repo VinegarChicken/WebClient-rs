@@ -1,0 +1,18 @@
+[package]
+name = "HttpClient-rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hyper = { version = "0.14", features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+pretty_env_logger = "0.4"
+hyper-tls = "0.5.0"
+scraper="0.12.0"
+url="2.2.2"
+lewp-css = "0.1.22"
+
+
+# Enables native-tls specific functionality not available by default.
