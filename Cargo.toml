@@ -1,5 +1,5 @@
 [package]
-name = "HttpClient-rs"
+name = "WebClient-rs"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,7 +12,3 @@ pretty_env_logger = "0.4"
 hyper-tls = "0.5.0"
 scraper="0.12.0"
 url="2.2.2"
-lewp-css = "0.1.22"
-
-
-# Enables native-tls specific functionality not available by default.

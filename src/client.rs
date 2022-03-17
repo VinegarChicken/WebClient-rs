@@ -8,21 +8,18 @@ use url::{Url, Host, Position};
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use lewp_css::domain::at_rules::media::MediaType::print;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 pub type UrlList = Result<(Vec<String>, Option<Vec<Response<Body>>>)>;
 
-pub struct WebTool {
+pub struct WebClient {
 
 }
 
-pub static mut BYTES_GLOBAL:Bytes = Bytes::new();
-
-impl WebTool {
+impl WebClient {
     pub fn new() -> Self{
-        WebTool {
+        WebClient {
 
         }
     }
@@ -59,7 +56,7 @@ impl WebTool {
                         for newurl in list.clone() {
                             let mut newList = (self.get_urls_base(newurl).await?);
                             list.append(&mut newList.0);
-                            responses.push((newList.1).unwrap());
+                            responses.push((newList.1).unwrap_or(Response::new(Body::from(""))));
                         }
                     }
                     _ =>{
@@ -103,11 +100,10 @@ impl WebTool {
                                 }
                                 continue
                             }
-                            let mut link = href.to_string();
-                            urls.push(link);
                         }
                         if let Some(mut src) = el.attr("src") {
                             if !src.contains("http") || !src.contains("https") {
+                                println!("{}", src);
                                 let mut urlparse = Url::parse(url.as_str().clone()).unwrap();
                                 let newurl = urlparse.join(src).unwrap();
                                 let newurl = newurl.as_str().to_string();
@@ -116,8 +112,6 @@ impl WebTool {
                                 }
                                 continue
                             }
-                            let mut link = src.to_string();
-                            urls.push(link);
                         }
                     }
                 }
@@ -152,35 +146,38 @@ impl WebTool {
         else{
             return Ok(())
         }
-
+        let mut t=0;
         let mut currentIndex = 0;
         for url in urls.0{
             //println!("{:?}", url);
             let mut urlparse = Url::parse(&mut url.as_str());
             if let Ok(urlparse) = urlparse{
                 let path = self.url_to_file_path(urlparse.path().to_string());
+                let url_file_path = Path::new(&path);
                 if path == ""{
+                    currentIndex +=1;
                     continue
                 }
-                println!("{}", path);
-                let url_file_path = Path::new(&path);
                 let bytes = hyper::body::to_bytes(&mut resps[currentIndex]).await?;
                 let dir = outputdir.join(url_file_path);
                 fs::create_dir_all(dir.parent().unwrap())?;
-                // println!("{}", dir.to_str().unwrap());
+                 println!("{}", dir.to_str().unwrap());
                 let mut f = File::create(dir);
                 if let Ok(mut file) = f{
                     file.write_all(&bytes);
                 }
                 else{
-                    //eprintln!("Failed to write {}", outputdir.join(url_file_path).to_str().unwrap());
+                    eprintln!("Failed to write {}", outputdir.join(url_file_path).to_str().unwrap());
+                    currentIndex +=1;
                     continue
                 }
             }
             else{
+                currentIndex +=1;
                 continue
             }
             currentIndex+=1;
+            println!("{}", currentIndex)
         }
         Ok(())
 
