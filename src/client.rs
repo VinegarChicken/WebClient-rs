@@ -1,6 +1,6 @@
 use std::ffi::{OsStr, OsString};
 use std::fs;
-use hyper::{Body, Request, Response, Client};
+use hyper::{Body, Request, Response, Client, Method, HeaderMap};
 use hyper::body::{Buf, Bytes, HttpBody};
 use hyper_tls::HttpsConnector;
 use scraper::{Html, Selector};
@@ -8,6 +8,8 @@ use url::{Url, Host, Position};
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::string::FromUtf8Error;
+use hyper::header::CONTENT_TYPE;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -17,27 +19,43 @@ pub struct WebClient {
 
 }
 
+pub enum RequestType{
+    GET,
+    PUT,
+    POST,
+    DELETE,
+    OPTIONS,
+    HEAD,
+    CONNECT,
+    PATCH,
+    TRACE,
+}
+
 impl WebClient {
     pub fn new() -> Self{
         WebClient {
 
         }
     }
-    pub async fn get_url(&self, url: String) -> Result<Response<Body>> {
+    pub async fn send_request(&self, url: String, m: Method, b: Body, header_map: HeaderMap) -> Result<Response<Body>> {
         let tls = HttpsConnector::new();
         let client = Client::builder()
             .build::<_, hyper::Body>(tls);
-        let req = Request::get(url)
-            .body(Body::empty())
-            .unwrap();
+        let req = Request::builder()
+            .method(m)
+            .uri(url)
+            .body(b)?;
+        let mut parts = req.into_parts();
+            parts.0.headers = header_map;
+        let req = Request::from_parts(parts.0, parts.1);
         let mut res = client.request(req).await?;
         Ok(res)
     }
 
     pub async fn get_urls_deep(&self, url: String, level: i8) -> UrlList{
-        let urlList = self.get_urls_base(url).await;
+        let url_list = self.get_urls_base(url).await;
 
-        match urlList{
+        match url_list {
             Ok(mut list) =>{
                 let mut list = list.0;
                 let mut level_2:Vec<String> = Vec::new();
@@ -46,9 +64,9 @@ impl WebClient {
                     2 =>{
                         for newurl in list.clone(){
                             //  println!("{}", newurl);
-                            let mut newList = (self.get_urls_base(newurl).await?);
-                            level_2.append(&mut newList.0);
-                            responses.push((newList.1).unwrap_or(Response::new(Body::from(""))));
+                            let mut new_list = (self.get_urls_base(newurl).await?);
+                            level_2.append(&mut new_list.0);
+                            responses.push((new_list.1).unwrap_or(Response::new(Body::from(""))));
                         }
                         return Ok((level_2, Some(responses)));
                     }
@@ -61,7 +79,7 @@ impl WebClient {
                     }
                     _ =>{
                         for url in list.clone(){
-                            let resp = self.get_url(url).await?;
+                            let resp = self.send_request(url, Method::GET, Body::empty(), HeaderMap::new()).await?;
                             responses.push(resp);
                         }
                         return Ok((list, Some(responses)))
@@ -69,7 +87,7 @@ impl WebClient {
                 }
                 return Ok((list, Some(responses)));
             }
-            Err(e)=>{
+            Err(_)=>{
                 println!("Error")
             }
         }
@@ -77,7 +95,7 @@ impl WebClient {
     }
 
     pub async fn get_urls_base(&self, url: String) -> Result<(Vec<String>, Option<Response<Body>>)>{
-        let request = self.get_url(url.clone()).await;
+        let request = self.send_request(url.clone(), Method::GET, Body::empty(), HeaderMap::new()).await;
         let mut urls:Vec<String> = Vec::new();
 
         return match request {
@@ -137,7 +155,7 @@ impl WebClient {
         let mut resps = urls.1.unwrap();
         let outputdir = Path::new(output_directory.as_str());
         fs::create_dir_all(output_directory.clone())?;
-        let index = self.get_url(download_url.clone()).await?;
+        let index = self.send_request(download_url.clone(), Method::GET, Body::empty(), HeaderMap::new()).await?;
         let bytes = hyper::body::to_bytes(index).await?;
         let mut f = File::create(outputdir.join("index.html"));
         if let Ok(mut file) = f{
