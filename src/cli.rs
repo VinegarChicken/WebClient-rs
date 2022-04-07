@@ -1,11 +1,11 @@
-use clap::{arg, Arg, ArgMatches, Command, Subcommand, Parser};
-use hyper::HeaderMap;
+use clap::{Subcommand, Parser};
 
+/*
 pub fn read_json_to_header_map(path: String) -> Result<HeaderMap, &'static str>{
     //TODO
     Ok(HeaderMap::new())
 }
-
+ */
 #[derive(Debug, Parser)]
 #[clap(name = "WebClient-rs", about = "A Http Client", long_about = None)]
 pub struct Cli {
@@ -28,14 +28,16 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     //#[clap()]
-    #[clap(name = "Download", about = "Download file", long_about = None)]
+    #[clap(name = "Download", about = "Download file", long_about = None, alias = "download")]
     Download {
         #[clap(short, long, help = "Output File Path")]
         outpath: String,
     },
     SiteDownload{
         #[clap(short, long, required = true, help = "Output directory for Site files. Will create if it doesn't exist.")]
-        outputdir: String
+        outputdir: String,
+        #[clap(long, help = "Download level", default_value = "0")]
+        level: i8
     },
     #[clap(name = "GET", about = "Send GET request", long_about = None, alias="get")]
     GET{
@@ -73,6 +75,5 @@ pub enum Commands {
     TRACE{
 
     },
-
 }
 

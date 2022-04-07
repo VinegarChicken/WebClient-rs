@@ -1,28 +1,12 @@
-use std::io::Bytes;
-use hyper::{Body, Request, Response, Client, Method, HeaderMap};
-use hyper::body::{Buf, HttpBody};
-use hyper_tls::HttpsConnector;
-use scraper::{Html, Selector};
-use url::{Url, Host, Position};
-
+use clap::Parser;
+use hyper::{Body, HeaderMap, Method};
+use crate::WebClient;
+use crate::Result;
 mod client;
 use client::*;
 mod cli;
 use cli::*;
-use clap::Parser;
 
-/*
-let bytes = hyper::body::to_bytes(req.body_mut()).await?;
-    let mut css = String::from_utf8(bytes.to_vec()).unwrap_or("".to_string());
- */
-/*
-//let t = client.download("https://checkpoint.cc".to_string(), 0,
-    //                      "C:\\Users\\m\\IdeaProjects\\WebClient-rs\\Test".to_string()).await?;
-    let mut req = client.get_url("https://httpbin.org/post".to_string(), Method::POST,Body::empty()).await?;
-    let bytes = hyper::body::to_bytes(req.body_mut()).await?;
-    let mut css = String::from_utf8(bytes.to_vec()).unwrap_or("".to_string());
-    println!("{}", css);
- */
 
 
 
@@ -33,41 +17,28 @@ async fn main() -> Result<()> {
     let mut method = Method::GET;
     let mut map = HeaderMap::new();
     if let Some(json_path) = cmd.header_type_path{
-        map = read_json_to_header_map(json_path).unwrap();
+        //map = read_json_to_header_map(json_path).unwrap();
     }
     match cmd.command {
-        /*
-        Commands::Req {type_req, content, info, header_type_path } =>{
-            let mut method = Method::GET;
-            let headers = read_json_to_header_map(header_type_path.unwrap_or("".to_string()));
-            let mut map = HeaderMap::new();
-            if let Ok(h) = headers{
-                map = h;
-            }
-
-            if upload && path.is_some(){
-                let file_data = std::fs::read(path.unwrap());
-                let resp = client.send_request(cmd.url, method, Body::from(file_data.unwrap_or(Vec::new())), map).await?;
-            }
-            else if let Some(p) = path{
-                let mut resp = client.send_request(cmd.url, method, Body::empty(), map).await?;
-                let bytes = hyper::body::to_bytes(resp.body_mut()).await?;
-                std::fs::write(p, bytes);
-            }
-            else{
-                let resp = client.send_request(cmd.url, method, Body::empty(), map).await?;
-            }
-
-        },
-
-         */
         Commands::Download {outpath} => {
-            let mut resp = client.send_request(cmd.url.clone(), Method::GET, Body::empty(), map.clone()).await?;
-            let bytes = hyper::body::to_bytes(resp.body_mut()).await?;
-            std::fs::write(outpath, bytes);
+            let resp = client.send_request(&cmd.url, Method::GET, Body::empty(), map.clone()).await;
+            match resp {
+                Err(e) => {
+                    eprintln!("{}", e.to_string());
+                }
+                Ok(mut r) => {
+                    let bytes = hyper::body::to_bytes(r.body_mut()).await?;
+                    std::fs::write(outpath, bytes);
+                }
+            }
+            return Ok(())
         },
-        Commands::SiteDownload {outputdir} => {
-            println!("Url: {}", outputdir)
+        Commands::SiteDownload {outputdir, level} => {
+            let resp = client.download(&cmd.url, level, outputdir).await;
+            if let Err(e) = resp{
+                eprintln!("{}", e.to_string());
+            }
+            return Ok(())
         }
         Commands::GET {} =>{
             method = Method::GET
@@ -97,28 +68,36 @@ async fn main() -> Result<()> {
             method = Method::TRACE
         },
     }
+
+
     let mut file_data:Vec<u8> = Vec::new();
     if let Some(path) = cmd.file_path{
-        let mut bytes = std::fs::read(path);
-        file_data = bytes.unwrap_or(Vec::new());
-        /*
-        if let Err(e) = bytes{
-            eprintln!("{}", e.to_string())
+        let bytes = std::fs::read(path);
+        if let Ok(b) = bytes{
+            file_data = b;
         }
-         */
+        else{
+            let error = bytes.unwrap_err();
+            eprintln!("{}", error.to_string());
+            return Ok(())
+        }
+
     }
 
-    let mut resp = client.send_request(cmd.url, method, Body::from(file_data), map).await?;
+    let mut resp = client.send_request(&cmd.url, method, Body::from(file_data), map).await?;
     let bytes = hyper::body::to_bytes(resp.body_mut()).await?;
-    let mut data_string = String::from_utf8(bytes.to_vec()).unwrap_or("".to_string());
+    let data_string = String::from_utf8(bytes.to_vec());
+    if let Err(e) = data_string{
+        println!("{}", e.to_string());
+        return Ok(())
+    }
+    let data_string = data_string.unwrap();
     if cmd.content{
         println!("\nResponse Content: {}", data_string);
     }
     if cmd.info{
         println!("\nResponse Info {:?}", resp);
     }
-
-
     Ok(())
 }
 
