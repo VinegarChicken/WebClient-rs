@@ -45,7 +45,7 @@ impl WebClient {
                 Ok(e)
             },
             Err(e) => {
-                Err(Box::try_from(e).unwrap())
+                Err(Box::from(e.to_string()))
             }
         }
     }
@@ -164,9 +164,10 @@ impl WebClient {
             file.write_all(bytes.as_ref());
         }
         else{
-            return Ok(())
+            let e = f.unwrap_err();
+            return Err(Box::from(e.to_string()));
         }
-        let mut currentIndex = 0;
+        let mut current_index = 0;
 
         for url in urls.0{
             //println!("{:?}", url);
@@ -179,27 +180,27 @@ impl WebClient {
                 let url_file_path = Path::new(&path);
                 if path == ""{
                     println!("Empty path");
-                    currentIndex +=1;
+                    current_index +=1;
                     continue
                 }
 
-                let bytes = hyper::body::to_bytes(&mut resps[currentIndex]).await?;
+                let bytes = hyper::body::to_bytes(&mut resps[current_index]).await?;
                 let dir = outputdir.join(url_file_path);
                 fs::create_dir_all(dir.parent().unwrap())?;
                 println!("{}", dir.to_str().unwrap());
                 let f = std::fs::write(dir, bytes);
                 if let Err(e) = f{
                     eprintln!("Failed to write {} Error: {}", outputdir.join(url_file_path).to_str().unwrap(), e.to_string());
-                    currentIndex +=1;
+                    current_index +=1;
                     continue
                 }
             }
             else{
                 println!("urlparse error");
-                currentIndex +=1;
+                current_index +=1;
                 continue
             }
-            currentIndex+=1;
+            current_index +=1;
         }
         Ok(())
 

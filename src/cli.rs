@@ -1,11 +1,13 @@
 use clap::{Subcommand, Parser};
+use hyper::HeaderMap;
 
-/*
+
 pub fn read_json_to_header_map(path: String) -> Result<HeaderMap, &'static str>{
-    //TODO
-    Ok(HeaderMap::new())
+    let map = HeaderMap::new();
+    todo!();
+    Ok(map)
 }
- */
+
 #[derive(Debug, Parser)]
 #[clap(name = "WebClient-rs", about = "A Http Client", long_about = None)]
 pub struct Cli {

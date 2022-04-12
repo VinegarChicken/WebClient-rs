@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
     let mut method = Method::GET;
     let mut map = HeaderMap::new();
     if let Some(json_path) = cmd.header_type_path{
-        //map = read_json_to_header_map(json_path).unwrap();
+        map = read_json_to_header_map(json_path).unwrap();
     }
     match cmd.command {
         Commands::Download {outpath} => {
@@ -77,9 +77,8 @@ async fn main() -> Result<()> {
             file_data = b;
         }
         else{
-            let error = bytes.unwrap_err();
-            eprintln!("{}", error.to_string());
-            return Ok(())
+            let e = bytes.unwrap_err();
+            return Err(Box::from(e.to_string()))
         }
 
     }
@@ -88,8 +87,7 @@ async fn main() -> Result<()> {
     let bytes = hyper::body::to_bytes(resp.body_mut()).await?;
     let data_string = String::from_utf8(bytes.to_vec());
     if let Err(e) = data_string{
-        println!("{}", e.to_string());
-        return Ok(())
+        return Err(Box::from(e.to_string()))
     }
     let data_string = data_string.unwrap();
     if cmd.content{
