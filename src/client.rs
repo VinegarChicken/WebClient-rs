@@ -3,8 +3,6 @@ use hyper::{Body, Request, Response, Client, Method, HeaderMap};
 use hyper_tls::HttpsConnector;
 use scraper::Html;
 use url::Url;
-use std::fs::File;
-use std::io::Write;
 use std::path::Path;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -152,25 +150,17 @@ impl WebClient {
         let sep = std::path::MAIN_SEPARATOR.to_string();
         url.strip_prefix("/").unwrap().replace("/", sep.as_str()).to_string()
     }
-    pub async fn download(&self, download_url:&String, level: i8, output_directory: String) -> Result<()>{
+    pub async fn download(&self, download_url:&String, level: i8, output_directory: &String) -> Result<()>{
         let urls = self.get_urls_deep(download_url, level).await?;
         let mut resps = urls.1.unwrap();
         let outputdir = Path::new(output_directory.as_str());
-        fs::create_dir_all(output_directory.clone())?;
-        let index = self.send_request(download_url, Method::GET, Body::empty(), HeaderMap::new()).await?;
-        let bytes = hyper::body::to_bytes(index).await?;
-        let f = File::create(outputdir.join("index.html"));
-        if let Ok(mut file) = f{
-            file.write_all(bytes.as_ref());
-        }
-        else{
-            let e = f.unwrap_err();
-            return Err(Box::from(e.to_string()));
+        let create_dirs = fs::create_dir_all(output_directory.clone());
+        if create_dirs.is_err(){
+            return Err(Box::from(create_dirs.unwrap_err().to_string()))
         }
         let mut current_index = 0;
 
         for url in urls.0{
-            //println!("{:?}", url);
             let urlparse = Url::parse(&mut url.as_str());
             if let Ok(urlparse) = urlparse{
                 let mut path = self.url_to_file_path(urlparse.path().to_string());
@@ -196,7 +186,7 @@ impl WebClient {
                 }
             }
             else{
-                println!("urlparse error");
+                println!("{:?}", urlparse.unwrap_err().to_string());
                 current_index +=1;
                 continue
             }
