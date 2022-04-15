@@ -33,6 +33,7 @@ pub enum Commands {
         #[clap(short, long, help = "Output File Path")]
         outpath: Option<String>,
     },
+    #[clap(name = "GET", about = "Download website", long_about = None, alias="get")]
     SiteDownload{
         url: String,
         #[clap(short, long, help = "Output directory for Site files. Will create if it doesn't exist.")]
