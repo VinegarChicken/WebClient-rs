@@ -31,12 +31,12 @@ pub enum Commands {
     Download {
         url: String,
         #[clap(short, long, help = "Output File Path")]
-        outpath: String,
+        outpath: Option<String>,
     },
     SiteDownload{
         url: String,
-        #[clap(short, long, required = true, help = "Output directory for Site files. Will create if it doesn't exist.")]
-        outputdir: String,
+        #[clap(short, long, help = "Output directory for Site files. Will create if it doesn't exist.")]
+        outputdir: Option<String>,
         #[clap(long, help = "Download level", default_value = "0")]
         level: i8
     },
