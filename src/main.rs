@@ -1,15 +1,19 @@
+use std::path::Path;
 use clap::Parser;
 use hyper::{Body, HeaderMap, Method};
+use url::Url;
 use crate::WebClient;
 use crate::Result;
 mod client;
 use client::*;
 mod cli;
 use cli::*;
+use std::env::current_dir;
+use std::ffi::OsStr;
 
 fn https_check(url: String) -> String{
     let mut newurl = String::from("https://");
-    if !url.contains(&"http://".to_string()) || !url.contains(&"https://".to_string()){
+    if !url.contains(&"http://".to_string()) && !url.contains(&"https://".to_string()){
         newurl.push_str(url.as_str());
         return newurl
     }
@@ -67,15 +71,34 @@ async fn main() -> Result<()> {
         Commands::Download {outpath, url} => {
             let url = https_check(url);
             let resp = client.send_request(&url, Method::GET, Body::empty(), map.clone()).await;
+            let parse = Url::parse(&*url);
+            let cwd = current_dir().unwrap();
+            let mut path = String::new();
+            if outpath.is_none(){
+                if let Ok(p) = parse{
+                    let url_path = client.url_to_file_path(p.path().to_string());
+                    let file_name = Path::new(&url_path).file_name();
+                    if let Some(name) = file_name{
+                        path = cwd.join(name.to_str().unwrap()).to_str().unwrap().to_string();
+                    }
+                    else{
+                        path = p.host_str().unwrap().to_string();
+                        path.push_str(".html");
+                    }
+                }
+            }
+            else{
+                path = outpath.unwrap();
+            }
             match resp {
                 Err(e) => {
                     eprintln!("{}", e.to_string());
                 }
                 Ok(mut r) => {
                     let bytes = hyper::body::to_bytes(r.body_mut()).await?;
-                    let f = std::fs::write(&outpath, bytes);
+                    let f = std::fs::write(&path, bytes);
                     if f.is_ok(){
-                        println!("Downloaded {} to {}", url, outpath);
+                        println!("Downloaded {} to {}", url, path);
                     }
                     else{
                         println!("{:?}", f.unwrap_err().to_string());
@@ -86,12 +109,19 @@ async fn main() -> Result<()> {
         },
         Commands::SiteDownload {url, outputdir, level} => {
             let url = https_check(url);
-            let resp = client.download(&url, level, &outputdir).await;
+            let mut path = String::new();
+            if outputdir.is_none(){
+                path = current_dir().unwrap().to_str().unwrap().to_string();
+            }
+            else{
+                path = outputdir.unwrap();
+            }
+            let resp = client.download(&url, level, &path).await;
             if let Err(e) = resp{
                 eprintln!("{}", e.to_string());
             }
             else{
-                println!("Downloaded {} to {}", url, outputdir);
+                println!("Downloaded {} to {}", url, path);
             }
             return Ok(())
         }
