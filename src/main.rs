@@ -12,7 +12,7 @@ fn https_check(url: String) -> String{
     if !url.contains(&"http://".to_string()) || !url.contains(&"https://".to_string()){
         newurl.push_str(url.as_str());
     }
-    newurl
+    url
 }
 
 fn cmd_to_method(cmd: &Commands) -> Method {
