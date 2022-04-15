@@ -164,6 +164,9 @@ impl WebClient {
             let urlparse = Url::parse(&mut url.as_str());
             if let Ok(urlparse) = urlparse{
                 let mut path = self.url_to_file_path(urlparse.path().to_string());
+                if Path::new(&path).file_name().is_none(){
+                    path.push_str("index.html")
+                }
                 if Path::new(&path).extension().is_none(){
                     path.push_str(".html");
                 }
