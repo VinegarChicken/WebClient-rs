@@ -11,6 +11,7 @@ fn https_check(url: String) -> String{
     let mut newurl = String::from("https://");
     if !url.contains(&"http://".to_string()) || !url.contains(&"https://".to_string()){
         newurl.push_str(url.as_str());
+        return newurl
     }
     url
 }
