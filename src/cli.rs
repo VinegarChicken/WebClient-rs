@@ -1,12 +1,29 @@
+use std::str::FromStr;
 use clap::{Subcommand, Parser};
+use hyper::header::HeaderName;
+use hyper::http::HeaderValue;
+use crate::HeaderMap;
+use crate::Result;
+use serde_json;
+use serde_json::{json, Value};
 
-/*
-pub fn read_json_to_header_map(path: String) -> Result<HeaderMap, &'static str>{
-    let map = HeaderMap::new();
-    todo
-    Ok(map)
+pub fn read_json_to_header_map(path: String) -> Result<HeaderMap>{
+    let mut headers = HeaderMap::new();
+    let data = std::fs::read_to_string(&*path);
+    if let Ok(s) = data{
+        let json: serde_json::error::Result<Value> = serde_json::from_str(s.as_str());
+        if let Err(e) = json{
+            return Err(Box::from(e))
+        }
+        let jmap = json.unwrap().as_object().unwrap().clone();
+        for (key, value) in jmap.into_iter(){
+           headers.insert(HeaderName::from_str(key.as_str()).unwrap(), HeaderValue::from_str(value.as_str().unwrap()).unwrap());
+        }
+        return Ok(headers)
+    }
+    Err(Box::from(data.unwrap_err()))
 }
- */
+
 
 #[derive(Debug, Parser, Clone)]
 #[clap(name = "WebClient-rs", about = "A Http Client", long_about = None)]
@@ -21,7 +38,9 @@ pub struct Cli {
     Todo
      */
     #[clap(short, long, help = "File to upload, if any. Use with correct type of request.")]
-    pub file_path: Option<String>
+    pub file_path: Option<String>,
+    #[clap(short, long, help = "File path to read header data from.", long_help = "")]
+    pub json_header_path: Option<String>
 }
 
 #[derive(Debug, Subcommand, Clone)]
@@ -33,7 +52,7 @@ pub enum Commands {
         #[clap(short, long, help = "Output File Path")]
         outpath: Option<String>,
     },
-    #[clap(name = "site-download", about = "Download website", long_about = None, alias="get")]
+    #[clap(name = "site-download", about = "Download website", long_about = None, alias="sd")]
     SiteDownload{
         url: String,
         #[clap(short, long, help = "Output directory for Site files. Will create if it doesn't exist.")]
@@ -78,4 +97,3 @@ pub enum Commands {
     url: String
     },
 }
-

@@ -1,9 +1,12 @@
-use std::fs;
+use std::{fs, io};
+use std::io::Write;
 use hyper::{Body, Request, Response, Client, Method, HeaderMap};
 use hyper_tls::HttpsConnector;
 use scraper::Html;
 use url::Url;
 use std::path::Path;
+use crate::Commands;
+use hyper::body::{Bytes, HttpBody};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -26,7 +29,7 @@ impl WebClient {
 
         }
     }
-    pub async fn send_request(&self, url: &String, m: Method, b: Body, header_map: HeaderMap) -> Result<Response<Body>> {
+    pub async fn send_request(&self, url: &String, m: Method, b: Body, header_map: HeaderMap, print_progress: bool) -> Result<Response<Body>> {
         let tls = HttpsConnector::new();
         let client = Client::builder()
             .build::<_, hyper::Body>(tls);
@@ -38,9 +41,27 @@ impl WebClient {
         parts.0.headers = header_map;
         let req = Request::from_parts(parts.0, parts.1);
         let res = client.request(req).await;
+        let mut size:f64= 0.0;
+        let mut b = Vec::new();
+
         return match res {
-            Ok(e) => {
-                Ok(e)
+            Ok(mut r) => {
+                if print_progress {
+                    let length = r.size_hint().upper().unwrap_or(0) as f64;
+                    while let Some(next) = r.data().await {
+                        let chunk = next?;
+                        b.append(&mut chunk.to_vec());
+                        size += chunk.len() as f64;
+                        let mut progress = (size / length) * 100.0;
+                        if progress == f64::INFINITY {
+                            progress = 100.0;
+                        }
+                        println!("Progress: {:.2}", progress);
+                    }
+                    let response = r.into_parts();
+                    r = Response::from_parts(response.0, Body::from(b));
+                }
+                Ok(r)
             },
             Err(e) => {
                 Err(Box::from(e.to_string()))
@@ -48,8 +69,8 @@ impl WebClient {
         }
     }
 
-    pub async fn get_urls_deep(&self, url: &String, level: i8) -> UrlList{
-        let url_list = self.get_urls_base(url).await;
+    pub async fn get_urls_deep(&self, url: &String, headers: HeaderMap, level: i8) -> UrlList{
+        let url_list = self.get_urls_base(url, headers.clone()).await;
 
         match url_list {
             Ok(list) =>{
@@ -61,7 +82,7 @@ impl WebClient {
                         for newurl in list.clone(){
                             //  println!("{}", newurl);
                             println!("Searching Url lv{}: {}", level, newurl);
-                            let mut new_list = self.get_urls_base(&newurl).await?;
+                            let mut new_list = self.get_urls_base(&newurl, headers.clone()).await?;
                             level_2.append(&mut new_list.0);
                             responses.push((new_list.1).unwrap_or(Response::new(Body::from(""))));
                         }
@@ -70,7 +91,7 @@ impl WebClient {
                     3 => {
                         for newurl in list.clone() {
                             println!("Searching Url lv{}: {}", level, newurl);
-                            let mut new_list = self.get_urls_base(&newurl).await?;
+                            let mut new_list = self.get_urls_base(&newurl, headers.clone()).await?;
                             //new_list.0 = new_list.0.into_iter().unique().collect();
                             list.append(&mut new_list.0);
                             responses.push((new_list.1).unwrap_or(Response::new(Body::from(""))));
@@ -79,7 +100,7 @@ impl WebClient {
                     _ =>{
                         for url in list.clone().iter(){
                             println!("Searching Url lv{}: {}", level, url);
-                            let resp = self.send_request(url, Method::GET, Body::empty(), HeaderMap::new()).await?;
+                            let resp = self.send_request(url, Method::GET, Body::empty(), HeaderMap::new(), false).await?;
                             responses.push(resp);
                         }
                         return Ok((list, Some(responses)))
@@ -93,8 +114,8 @@ impl WebClient {
         }
     }
 
-    pub async fn get_urls_base(&self, url: &String) -> Result<(Vec<String>, Option<Response<Body>>)>{
-        let request = self.send_request(url, Method::GET, Body::empty(), HeaderMap::new()).await;
+    pub async fn get_urls_base(&self, url: &String, headers: HeaderMap) -> Result<(Vec<String>, Option<Response<Body>>)>{
+        let request = self.send_request(url, Method::GET, Body::empty(), headers, false).await;
         let mut urls:Vec<String> = Vec::new();
 
         return match request {
@@ -150,8 +171,8 @@ impl WebClient {
         let sep = std::path::MAIN_SEPARATOR.to_string();
         url.strip_prefix("/").unwrap().replace("/", sep.as_str()).to_string()
     }
-    pub async fn download(&self, download_url:&String, level: i8, output_directory: &String) -> Result<()>{
-        let urls = self.get_urls_deep(download_url, level).await?;
+    pub async fn download(&self, download_url:&String, headers: HeaderMap, level: i8, output_directory: &String) -> Result<()>{
+        let urls = self.get_urls_deep(download_url, headers, level).await?;
         let mut resps = urls.1.unwrap();
         let outputdir = Path::new(output_directory.as_str());
         let create_dirs = fs::create_dir_all(output_directory.clone());
