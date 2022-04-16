@@ -24,7 +24,7 @@ pub struct Cli {
      */
     #[clap(short, long, help = "File to upload, if any. Use with correct type of request.")]
     pub file_path: Option<String>,
-    #[clap(long, help = "Disables default behavior of following requests. When downloading a website, requests are not followed reguardless.")]
+    #[clap(long, help = "Disables default behavior of following requests. When downloading a website, requests are not followed regardless.")]
     pub no_redirect: bool,
     #[clap(short, long, help = "File path to read header data from.", long_help = "")]
     pub json_header_path: Option<String>
@@ -53,34 +53,34 @@ pub enum Commands {
     },
     #[clap(name = "PUT", about = "Send PUT request", long_about = None, alias="put")]
     PUT{
-    url: String
+        url: String
     },
     #[clap(name = "POST", about = "Send POST request", long_about = None, alias="post")]
     POST{
-    url: String
+        url: String
     },
     #[clap(name = "DELETE", about = "Send DELETE request", long_about = None, alias="delete")]
     DELETE{
-    url: String
+        url: String
     },
     #[clap(name = "OPTIONS", about = "Send OPTIONS request", long_about = None, alias="options")]
     OPTIONS{
-    url: String
+        url: String
     },
     #[clap(name = "HEAD", about = "Send HEAD request", long_about = None, alias="head")]
     HEAD{
-    url: String
+        url: String
     },
     #[clap(name = "CONNECT", about = "Send CONNECT request", long_about = None, alias="connect")]
     CONNECT{
-    url: String
+        url: String
     },
     #[clap(name = "PATCH", about = "Send PATCH request", long_about = None, alias="patch")]
     PATCH{
-    url: String
+        url: String
     },
     #[clap(name = "TRACE", about = "Send TRACE request", long_about = None, alias="trace")]
     TRACE{
-    url: String
+        url: String
     },
 }
