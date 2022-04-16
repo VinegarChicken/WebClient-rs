@@ -15,18 +15,11 @@ use serde_json::{json, Value};
 pub struct Cli {
     #[clap(subcommand)]
     pub command: Commands,
-    /*
-    #[clap(short, long)]
-    pub logging:bool,
-    #[clap(long, help = "Use request headers from specified json")]
-    pub header_type_path: Option<String>,
-    Todo
-     */
     #[clap(short, long, help = "File to upload, if any. Use with correct type of request.")]
     pub file_path: Option<String>,
     #[clap(long, help = "Disables default behavior of following requests. When downloading a website, requests are not followed regardless.")]
     pub no_redirect: bool,
-    #[clap(short, long, help = "File path to read header data from.", long_help = "")]
+    #[clap(short, long, help = "Json file to read header data from.", long_help = "")]
     pub json_header_path: Option<String>
 }
 
