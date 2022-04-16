@@ -1,27 +1,39 @@
-use std::{fs, io};
-use std::io::Write;
-use hyper::{Body, Request, Response, Client, Method, HeaderMap};
+use std::fs;
+use hyper::{Body, Request, Response, Client, Method, HeaderMap, StatusCode};
 use hyper_tls::HttpsConnector;
 use scraper::Html;
 use url::Url;
 use std::path::Path;
-use crate::Commands;
-use hyper::body::{Bytes, HttpBody};
-
+use std::str::FromStr;
+use hyper::body::HttpBody;
+use hyper::header::{HeaderName, HeaderValue};
+use serde_json::Value;
+use indicatif::{ProgressBar, ProgressStyle};
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 pub type UrlList = Result<(Vec<String>, Option<Vec<Response<Body>>>)>;
 
-
+pub fn read_json_to_header_map(path: String) -> Result<HeaderMap>{
+    let mut headers = HeaderMap::new();
+    let data = std::fs::read_to_string(&*path);
+    if let Ok(s) = data{
+        let json: serde_json::error::Result<Value> = serde_json::from_str(s.as_str());
+        if let Err(e) = json{
+            return Err(Box::from(e))
+        }
+        let jmap = json.unwrap().as_object().unwrap().clone();
+        for (key, value) in jmap.into_iter(){
+            headers.insert(HeaderName::from_str(key.as_str()).unwrap(), HeaderValue::from_str(value.as_str().unwrap()).unwrap());
+        }
+        return Ok(headers)
+    }
+    Err(Box::from(data.unwrap_err()))
+}
 
 pub struct WebClient {
 
 }
-/*
-TODO
-Breadth first or depth first?
-A* search algorithm
- */
+
 
 impl WebClient {
     pub fn new() -> Self{
@@ -29,37 +41,55 @@ impl WebClient {
 
         }
     }
-    pub async fn send_request(&self, url: &String, m: Method, b: Body, header_map: HeaderMap, print_progress: bool) -> Result<Response<Body>> {
+    pub async fn send_request(&self, url: &String, m: Method, b: Vec<u8>, header_map: HeaderMap, follow_redirects: bool, print_progress: bool) -> Result<Response<Body>> {
         let tls = HttpsConnector::new();
         let client = Client::builder()
             .build::<_, hyper::Body>(tls);
         let req = Request::builder()
-            .method(m)
+            .method(m.clone())
             .uri(url)
-            .body(b)?;
+            .body(Body::from(b.clone()))?;
         let mut parts = req.into_parts();
         parts.0.headers = header_map;
         let req = Request::from_parts(parts.0, parts.1);
         let res = client.request(req).await;
-        let mut size:f64= 0.0;
-        let mut b = Vec::new();
+        let mut bytes = Vec::new();
 
         return match res {
             Ok(mut r) => {
+                let mut size:f64= 0.0;
+                if follow_redirects{
+                    if (300..399).contains(&r.status().as_u16()){
+                        let location = r.headers().get("location").unwrap().to_str().unwrap().to_string();
+                        let newreq = Request::builder()
+                            .method(m.clone())
+                            .uri(location.clone())
+                            .body(Body::from(b.clone()))?;
+                        let newresp = client.request(newreq).await?;
+                        r = newresp;
+                        println!("Redirected to {}", location);
+                    }
+                }
                 if print_progress {
                     let length = r.size_hint().upper().unwrap_or(0) as f64;
+                    let pb = ProgressBar::new(length as u64);
+                    pb.set_style(
+                        ProgressStyle::with_template(
+                            "[{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})",
+                        )
+                            .unwrap()
+                            .progress_chars("#>-"),
+                    );
                     while let Some(next) = r.data().await {
                         let chunk = next?;
-                        b.append(&mut chunk.to_vec());
+                        bytes.append(&mut chunk.to_vec());
                         size += chunk.len() as f64;
-                        let mut progress = (size / length) * 100.0;
-                        if progress == f64::INFINITY {
-                            progress = 100.0;
-                        }
-                        println!("Progress: {:.2}", progress);
+                        pb.set_position(size as u64);
+                        //println!("Progress: {:.2}", progress);
                     }
+                    pb.finish();
                     let response = r.into_parts();
-                    r = Response::from_parts(response.0, Body::from(b));
+                    r = Response::from_parts(response.0, Body::from(bytes));
                 }
                 Ok(r)
             },
@@ -100,7 +130,7 @@ impl WebClient {
                     _ =>{
                         for url in list.clone().iter(){
                             println!("Searching Url lv{}: {}", level, url);
-                            let resp = self.send_request(url, Method::GET, Body::empty(), HeaderMap::new(), false).await?;
+                            let resp = self.send_request(url, Method::GET, Vec::new(), HeaderMap::new(), false, false).await?;
                             responses.push(resp);
                         }
                         return Ok((list, Some(responses)))
@@ -115,7 +145,7 @@ impl WebClient {
     }
 
     pub async fn get_urls_base(&self, url: &String, headers: HeaderMap) -> Result<(Vec<String>, Option<Response<Body>>)>{
-        let request = self.send_request(url, Method::GET, Body::empty(), headers, false).await;
+        let request = self.send_request(url, Method::GET, Vec::new(), headers, false, false).await;
         let mut urls:Vec<String> = Vec::new();
 
         return match request {

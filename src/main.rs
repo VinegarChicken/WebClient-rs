@@ -12,6 +12,7 @@ use std::env::current_dir;
 use std::ffi::OsStr;
 use hyper::body::HttpBody;
 
+
 fn https_check(url: String) -> String{
     let mut newurl = String::from("https://");
     if !url.contains(&"http://".to_string()) && !url.contains(&"https://".to_string()){
@@ -82,7 +83,11 @@ async fn main() -> Result<()> {
     match cmd.command {
         Commands::Download {outpath, url} => {
             let url = https_check(url);
-            let resp = client.send_request(&url, Method::GET, Body::empty(), map.clone(), true).await;
+            let mut follow_redirect = true;
+            if cmd.no_redirect{
+                follow_redirect = false
+            }
+            let resp = client.send_request(&url, Method::GET, Vec::new(), map.clone(), follow_redirect, true).await;
             let parse = Url::parse(&*url);
             let cwd = current_dir().unwrap();
             let mut path = String::new();
@@ -141,6 +146,7 @@ async fn main() -> Result<()> {
         Commands::GET {url} | Commands::POST {url} | Commands::PUT {url} | Commands::CONNECT {url}  | Commands::PATCH {url} | Commands::DELETE {url} | Commands::OPTIONS {url} | Commands::HEAD {url} | Commands::TRACE {url} =>{
             let url = https_check(url);
             let mut file_data:Vec<u8> = Vec::new();
+            let mut follow_redirect = true;
             if let Some(path) = cmd.file_path{
                 let bytes = std::fs::read(path);
                 if let Ok(b) = bytes{
@@ -151,7 +157,10 @@ async fn main() -> Result<()> {
                     return Err(Box::from(e.to_string()))
                 }
             }
-            let mut resp = client.send_request(&url, method, Body::from(file_data), map, true).await?;
+            if cmd.no_redirect{
+                follow_redirect = false
+            }
+            let mut resp = client.send_request(&url, method, file_data, map, follow_redirect, true).await?;
             let bytes = hyper::body::to_bytes(resp.body_mut()).await?;
             let data_string = String::from_utf8(bytes.to_vec());
             if let Err(e) = data_string{

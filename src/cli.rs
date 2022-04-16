@@ -7,22 +7,7 @@ use crate::Result;
 use serde_json;
 use serde_json::{json, Value};
 
-pub fn read_json_to_header_map(path: String) -> Result<HeaderMap>{
-    let mut headers = HeaderMap::new();
-    let data = std::fs::read_to_string(&*path);
-    if let Ok(s) = data{
-        let json: serde_json::error::Result<Value> = serde_json::from_str(s.as_str());
-        if let Err(e) = json{
-            return Err(Box::from(e))
-        }
-        let jmap = json.unwrap().as_object().unwrap().clone();
-        for (key, value) in jmap.into_iter(){
-           headers.insert(HeaderName::from_str(key.as_str()).unwrap(), HeaderValue::from_str(value.as_str().unwrap()).unwrap());
-        }
-        return Ok(headers)
-    }
-    Err(Box::from(data.unwrap_err()))
-}
+
 
 
 #[derive(Debug, Parser, Clone)]
@@ -39,6 +24,8 @@ pub struct Cli {
      */
     #[clap(short, long, help = "File to upload, if any. Use with correct type of request.")]
     pub file_path: Option<String>,
+    #[clap(long, help = "Disables default behavior of following requests. When downloading a website, requests are not followed reguardless.")]
+    pub no_redirect: bool,
     #[clap(short, long, help = "File path to read header data from.", long_help = "")]
     pub json_header_path: Option<String>
 }
