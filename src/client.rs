@@ -13,23 +13,6 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + S
 
 pub type UrlList = Result<(Vec<String>, Option<Vec<Response<Body>>>)>;
 
-pub fn read_json_to_header_map(path: String) -> Result<HeaderMap>{
-    let mut headers = HeaderMap::new();
-    let data = std::fs::read_to_string(&*path);
-    if let Ok(s) = data{
-        let json: serde_json::error::Result<Value> = serde_json::from_str(s.as_str());
-        if let Err(e) = json{
-            return Err(Box::from(e))
-        }
-        let jmap = json.unwrap().as_object().unwrap().clone();
-        for (key, value) in jmap.into_iter(){
-            headers.insert(HeaderName::from_str(key.as_str()).unwrap(), HeaderValue::from_str(value.as_str().unwrap()).unwrap());
-        }
-        return Ok(headers)
-    }
-    Err(Box::from(data.unwrap_err()))
-}
-
 pub struct WebClient {
 
 }
@@ -41,30 +24,30 @@ impl WebClient {
 
         }
     }
-    pub async fn send_request(&self, url: &String, m: Method, b: Vec<u8>, header_map: HeaderMap, follow_redirects: bool, print_progress: bool) -> Result<Response<Body>> {
+    pub async fn send_request(&self, url: &String, m: Method, bytes: Vec<u8>, header_map: HeaderMap, follow_redirects: bool, print_progress: bool) -> Result<Response<Body>> {
         let tls = HttpsConnector::new();
         let client = Client::builder()
             .build::<_, hyper::Body>(tls);
         let req = Request::builder()
             .method(m.clone())
             .uri(url)
-            .body(Body::from(b.clone()))?;
+            .body(Body::from(bytes.clone()))?;
         let mut parts = req.into_parts();
         parts.0.headers = header_map;
         let req = Request::from_parts(parts.0, parts.1);
         let res = client.request(req).await;
-        let mut bytes = Vec::new();
+        let mut respbytes = Vec::new();
 
         return match res {
             Ok(mut r) => {
-                let mut size:f64= 0.0;
+                let mut size:f64 = 0.0;
                 if follow_redirects{
                     if (300..399).contains(&r.status().as_u16()){
                         let location = r.headers().get("location").unwrap().to_str().unwrap().to_string();
                         let newreq = Request::builder()
                             .method(m.clone())
                             .uri(location.clone())
-                            .body(Body::from(b.clone()))?;
+                            .body(Body::from(bytes.clone()))?;
                         let newresp = client.request(newreq).await?;
                         r = newresp;
                         println!("Redirected to {}", location);
@@ -82,14 +65,13 @@ impl WebClient {
                     );
                     while let Some(next) = r.data().await {
                         let chunk = next?;
-                        bytes.append(&mut chunk.to_vec());
+                        respbytes.append(&mut chunk.to_vec());
                         size += chunk.len() as f64;
                         pb.set_position(size as u64);
-                        //println!("Progress: {:.2}", progress);
                     }
                     pb.finish();
                     let response = r.into_parts();
-                    r = Response::from_parts(response.0, Body::from(bytes));
+                    r = Response::from_parts(response.0, Body::from(respbytes));
                 }
                 Ok(r)
             },

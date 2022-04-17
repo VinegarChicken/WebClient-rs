@@ -19,6 +19,10 @@ pub struct Cli {
     pub file_path: Option<String>,
     #[clap(long, help = "Disables default behavior of following requests. When downloading a website, requests are not followed regardless.")]
     pub no_redirect: bool,
+    #[clap(short, long, help = "Only print response information instead of response content")]
+    pub info: bool,
+    #[clap(short, long, help = "Write headers to json file")]
+    pub dump_headers: Option<String>,
     #[clap(short, long, help = "Json file to read header data from.", long_help = "")]
     pub json_header_path: Option<String>
 }
@@ -26,7 +30,7 @@ pub struct Cli {
 #[derive(Debug, Subcommand, Clone)]
 pub enum Commands {
     //#[clap()]
-    #[clap(name = "Download", about = "Download file", long_about = None, alias = "download")]
+    #[clap(name = "Download", about = "Download file", long_about = None, alias = "d")]
     Download {
         url: String,
         #[clap(short, long, help = "Output File Path")]
