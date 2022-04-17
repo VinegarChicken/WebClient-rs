@@ -3,14 +3,20 @@ WebClient-rs
 A Http Client
 
 USAGE:
-    WebClient-rs [OPTIONS] <SUBCOMMAND>
+    WebCLient-rs [OPTIONS] <SUBCOMMAND>
 
 OPTIONS:
+    -d, --dump-headers <DUMP_HEADERS>
+            Write headers to json file
+
     -f, --file-path <FILE_PATH>
             File to upload, if any. Use with correct type of request.
 
     -h, --help
             Print help information
+
+    -i, --info
+            Only print response information instead of response content
 
     -j, --json-header-path <JSON_HEADER_PATH>
 
@@ -44,7 +50,6 @@ SUBCOMMANDS:
             Print this message or the help of the given subcommand(s)
     site-download
             Download website
-
 ```
 ## License
 [ GNU GPLv3 ](https://choosealicense.com/licenses/gpl-3.0/)
